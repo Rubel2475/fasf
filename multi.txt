@@ -1,0 +1,352 @@
+char msg[10000];
+string en="", de=""; 
+
+string to_string(int count){
+
+    string tmp="";
+    while(count){
+        tmp += char(count%10 + 48);
+        count /= 10;
+    }
+    reverse(tmp.begin(), tmp.end());
+
+    return tmp;
+}
+
+int main(){
+
+    int count=0, i,j;
+    
+    ifstream in("run_in.txt");
+    in >> msg;
+
+    ofstream encoded, decoded;
+    encoded.open("encoded.txt");
+    decoded.open("decoded.txt");
+
+
+    //encryption
+    for(i=0; msg[i]; i++){
+        count =0;
+        for(j=i; msg[j] && (msg[i]==msg[j]); j++){
+            count++;
+        }
+        i = j-1;
+        en += msg[i];
+        en += '(' + to_string(count) + ')';
+
+    }
+    cout << "encoded: " << en << endl;
+    encoded << "encoded: " << en << endl;
+
+
+
+    //decryption
+
+    // encoded.open("run_encoded.txt");
+    // encoded>>en1;
+
+    for(i =0; en[i]; i++){
+        if(en[i]=='('){
+            count =0;
+            for(j=i+1; en[j] && (en[j]!=')'); j++){
+                count = count*10 + int(en[j]-'0');
+            }
+
+            for(int k=0; k<count; k++){
+                de += en[i-1];
+            }
+        }
+    }
+    cout << "decoded: " << de << endl;
+    decoded << "decoded: " << de << endl;
+
+
+
+
+-------
+#include<bits/stdc++.h>
+using namespace std;
+
+void lzw_encoding(){
+
+    int i,j,m,n,code, tmp_code, mx_code=0;
+    string msg, tmp;
+    char ch;
+
+    vector<int> code_vec;
+    map<string, int> mp;
+
+    ofstream encode("encoded.txt");
+    //ofstream decode("decoded.txt");
+
+    ifstream in("in.txt");
+    getline(in, msg);
+
+    in >> n;
+
+    for(i=0; i<n; i++){
+        in >> ch >> code;
+        cout << ch << " " << code << endl;
+        encode << int(ch) << " " <<  code << endl;
+
+        tmp = "";
+        tmp += ch;
+        mp[tmp] = code;
+        mx_code = max(mx_code, code);
+    }
+    encode << -1 << " " << -1 << endl;
+
+
+    tmp ="";
+    for(i=0; i<msg.size(); i++){
+
+        tmp_code = mp[tmp];
+        tmp += msg[i];
+
+        if(!mp[tmp]){
+
+            code_vec.push_back(tmp_code);  //output the code(for s -> according algo)
+            mp[tmp] = ++mx_code;          //new code for new string(output)
+
+            cout << tmp << endl;
+
+            tmp=""; 
+            tmp += msg[i];  //s = c ( according algo)
+        }
+    }
+    tmp_code = mp[tmp];
+    code_vec.push_back(tmp_code);
+
+    encode << code_vec.size() << endl;
+    cout << "encoding: ";
+    for(i=0; i<code_vec.size(); i++){
+
+        if(i+1 == code_vec.size()){
+            cout<<code_vec[i]<<endl;
+            encode<<code_vec[i]<<endl;
+        }
+        else{
+            cout << code_vec[i] << " ";
+            encode << code_vec[i] << " ";
+        }
+    }
+
+    in.close();
+    encode.close();
+}
+
+
+
+void lzw_decoding(){
+
+    int i, j, n, k ,m, inc=0;
+    map<int, string>mp;
+    vector<int>code;
+    string decd, tmp, str;
+    char ch;
+
+    ifstream in;
+    in.open("encoded.txt");
+
+    ofstream out;
+    out.open("decoded.txt");
+
+    for(i = 0; ; i++){
+        in>>k>>n;
+        //cout<<k<<" "<<n<<endl;
+        if(n==-1) break;
+        tmp = "";
+        tmp += (char)k;
+        mp[n] = tmp;
+        inc++;
+    }
+
+    in>>n;
+    decd = "";
+    for(i = 0; i < n; i++){
+        in>>m;
+        //code.push_back(m);
+        //cout<<m<<endl;
+        decd += mp[m];
+
+        if(i == 0){
+            tmp = mp[m];
+            continue;
+        }
+
+        tmp += mp[m][0];
+        mp[++inc] = tmp;
+
+        tmp = mp[m];
+    }
+
+    cout<<"Decoded String : "<<decd<<endl;
+    out<<decd<<endl;
+
+    out.close();
+    in.close();
+
+    // return decd;
+}
+
+
+int main(){
+
+
+    lzw_encoding();
+
+    lzw_decoding();
+
+    return 0;
+}
+
+
+
+
+
+
+
+------------------------
+
+#include<bits/stdc++.h>
+using namespace std;
+
+// symbol table
+double a, probability[256];
+char ch[256];
+int in;
+
+
+double arithmetic_coding(string str){
+
+    int i,j,n,m;
+
+    //cout<<str<<endl;
+
+    ofstream encode;
+    encode.open("arithmetic_encoded.txt");
+
+    double range = 1.0, point = 0, tmp_range = 0;
+
+    // point is the high point value of a tmp_range
+    for(i = 0; i < str.size(); i++){
+        point = point - tmp_range;
+        for(j = 0; j < in; j++){
+            tmp_range = range*probability[j];
+            point = point + tmp_range;
+            if(str[i] == ch[j]){
+                //printf("%lf %lf\n",point-tmp_range, point);
+                range = tmp_range;
+                //printf("%c %lf\n",str[i],point);
+                break;
+            }
+        }
+    }
+    double tag = (point + (point - tmp_range))/2.0;
+
+
+    encode<<in<<endl;
+    for(i = 0; i < in; i++){
+        encode<<(int)ch[i]<< " "<<probability[i]<<endl;
+    }
+
+    cout<<"\nEncrypted data : ";
+    cout<<tag<<endl;
+    encode<<tag<<endl;
+
+    encode.close();
+
+    return tag;
+}
+
+string arithmetic_decoding(){
+
+    int i,j,k,x;
+    double tag;
+
+    ifstream encoded;
+    ofstream decoded;
+
+    encoded.open("arithmetic_encoded.txt");
+    decoded.open("arithmetic_decoded.txt");
+
+    encoded>>in;
+    for(i = 0; i < in ; i++){
+        encoded>>x>>probability[i];
+        ch[i] = (char)x;
+    }
+
+    encoded>>tag;
+
+    double range = 1.0, point = 0, tmp_range = 0;
+    string decd = "";
+
+    // point is the high point value of a tmp_range
+    while(decd[decd.size()-1] != '$'){
+        point = point - tmp_range;
+        for(j = 0; j < in; j++){
+            tmp_range = range*probability[j];
+            point = point + tmp_range;
+            //printf("%lf %lf\n",curr, probability[j]);
+            if(((point - tmp_range) < tag && point > tag) || tmp_range<0.000001){
+                range = tmp_range;
+                //printf("%lf %lf\n",point-tmp_range, point);
+                decd += ch[j];
+                break;
+            }
+        }
+    }
+
+    cout<<"Decrypted data : ";
+    cout<<decd<<endl;
+    decoded<<decd<<endl;
+
+    encoded.close();
+    decoded.close();
+
+    return decd;
+}
+
+int mark[300];
+
+int main(){
+
+    int i,j,n,m,a,b;
+    double enc;
+    string decd, str;
+
+    ifstream input;
+    input.open("arithmetic_coding_in.txt");
+
+    getline(input, str);
+
+    /// probability calculation
+    for(i = 0; i < str.size(); i++){
+        mark[(int)str[i]]++;
+    }
+
+    in = 0;
+    for(i = 0; i <= 255; i++){
+        if(mark[i]){
+            ch[in] = (char)i;
+            probability[in] = (float)mark[i]/(float)str.size();
+            in++;
+        }
+    }
+
+
+    enc = arithmetic_coding(str);
+
+    cout<<"Original string: "<<str<<endl;
+
+    decd = arithmetic_decoding();
+
+
+    input.close();
+
+    return 0;
+}
+
+
+
